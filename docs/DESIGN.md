@@ -14,7 +14,7 @@ The three headline recommendations:
 2. **Measured, per-capsule calibration as a first-class feature.** Build a measured profile for each supported mic model, let users refine it with their own unit's measurement, then convert A to B with frequency-dependent matrices derived from that data, not a single average filter. This is where most of the real audio quality is won or lost.
 3. **A visual-first interface.** A live sound-field heat map with virtual mics dragged directly on it, a fixed output section that follows the chosen format, and automation-friendly parameters throughout.
 
-Decided on 9 Nov 2026: SF2 launches free, supports five mics (NT-SF1, SPS200, Ambeo, TetraMic, H3-VR), skips AAX until there is an Avid developer account, and does not count on manufacturer capsule data. The JUCE licence question is still open; see the end.
+Decided on 9 Nov 2026: SF2 launches free, supports five mics (NT-SF1, SPS200, Ambeo, TetraMic, H3-VR), skips AAX until there is an Avid developer account, and does not count on manufacturer capsule data. It is built on JUCE's free Starter licence and stays closed source for now.
 
 ## Reference products
 
@@ -197,7 +197,7 @@ The window is built around one large sound-field view where virtual mics are aim
 
 ## Formats, compatibility and stack
 
-Build in C++20 on JUCE 8 so one codebase ships VST3, AU, AAX and a standalone app, with the DSP in a separate host-independent library that can be unit-tested and reused.
+Build in C++20 on JUCE (current major version, 9, on the free Starter licence) so one codebase ships VST3, AU, AAX and a standalone app, with the DSP in a separate host-independent library that can be unit-tested and reused.
 
 | Topic | Decision |
 | --- | --- |
@@ -224,7 +224,7 @@ Ship parity first as v1.0, then quality, then the parametric engine; each phase 
 
 The blind A/B gate compares SF2 against SoundField by RØDE on the same NT-SF1 recordings; v1.1 should match or beat it before the parametric work starts. No dates are set yet.
 
-### Decisions and open questions
+### Decisions
 
 Decided on 9 Nov 2026:
 
@@ -233,6 +233,4 @@ Decided on 9 Nov 2026:
 - **Capsule data:** assume none from manufacturers; build our own per-model profiles and offer user measurement.
 - **AAX:** skipped until there is an Avid developer account; Pro Tools support follows then.
 
-Still open:
-
-- [ ] JUCE licence: the free Starter licence (closed source, revenue cap) or open source under AGPLv3.
+- **Framework licence:** JUCE, on the free Starter tier, closed source for now. Revisit when revenue nears the $20,000 cap (Indie tier) or if open-sourcing under AGPLv3 becomes attractive.
