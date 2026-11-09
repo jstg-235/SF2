@@ -130,11 +130,18 @@ Every output, linear or parametric, is fed by the same calibrated A-to-B stage, 
 
 ### 5. Parametric engine
 
-- Short-time Fourier transform, 2,048-point window, 50 to 75% overlap, Hann or Kaiser window at 48 kHz (scaled by sample rate). Offline render mode doubles the size.
-- Per tile: estimate direction of arrival from the active intensity vector (Re{W·[X,Y,Z]\*}) and diffuseness from its ratio to energy, averaged over about 20 to 50 ms with frequency-dependent smoothing.
-- Optional two-source model per tile (Harpex-style) for dense scenes.
-- Render direct sound to the target (speakers via VBAP, binaural via HRTF, higher-order AmbiX via spherical harmonics) and diffuse sound through decorrelators to all outputs.
-- Musical-noise control: a temporal and spectral smoothing control, a floor on the diffuse stream, and a "Sharpness" blend with the linear path. This is what keeps parametric processing from sounding watery.
+- Short-time Fourier transform with zero-padding and overlap-add; 2,048-sample window at 48 kHz (the value the Harpex paper calls typical), 50 to 75% overlap, scaled with sample rate. Offline render mode doubles the size.
+- Primary model, per bin: two plane waves (Harpex method). The 8 real numbers of a first-order bin (real and imaginary W, X, Y, Z) are solved exactly for two directions and two complex amplitudes, in closed form via a QR decomposition of [Re X, Im X]; no iteration or eigen-solve. A bin has no solution when Q11² + Q12² < 1/2.
+- Fallback for bins with no solution: one direction from the active intensity vector plus a diffuseness estimate (DirAC-style). The papers measure this at about 25% of bins in isotropic noise but only 2 to 3% of the energy in real recordings, so it matters for room tone, not for sources.
+- Rendering: add two extra virtual directions as far as possible from the two estimates, so every bin has a well-conditioned 4×4 decode, then pan to the target (VBAP or pairwise for speakers, HRTFs for binaural, spherical harmonics up to 3rd order for upmix). Fallback bins render the diffuse part through decorrelators.
+- Artifact control: smooth the per-bin output matrix (panning or HRTF weights), never the directions, with one-pole filters across time and across frequency. Without it, transients turn into noise bursts, the frame rate ticks and the image flutters; too much frequency smoothing blurs sources and depth, too much time smoothing smears onsets. The Sharpness blend with the linear path sits on top.
+- Binaural only: above about 1.7 kHz replace HRTF phase with phase integrated from group delay (sigmoid crossover, centre 1,700 Hz, width 100 Hz), and match the two plane waves between neighbouring bands first, because their labels are arbitrary per band. This fixes smeared transients and lost depth on headphones.
+- Advanced controls (Harpex's own four): window length, time smoothing, frequency smoothing, minimum angle between plane waves. The paper reports each can vary about tenfold without audible change, so they live in an Expert panel.
+- Known limits to design around: two sources closer than about 30° widen and merge below 5°; coherent sources within 10° of in-phase or anti-phase degrade; an interferer more than 20 dB down is ignored. Busy scenes are the worst case.
+
+Why two plane waves rather than DirAC alone: in the Harpex listening tests, first-order input decoded this way matched 3rd-order Ambisonics on an 8-speaker ring (scores 68 vs 67, against 30 for plain 1st order), and on headphones it scored 61 against 39 for 3rd order and 75 for 5th order. It cost about 25% of one 2010 laptop core at 48 kHz, which supports our 8% M1 budget. Sources: [Berge & Barrett 2010, HARPEX](https://harpex.net/harpex.pdf), [Berge & Barrett, AES 40th Conference 2010](https://harpex.net/aes40-free.pdf).
+
+Before building this engine, check whether the two-plane-wave method is covered by a patent; this has not been verified, and it decides whether we implement it as published or design our own variant.
 
 ### 6. Output stage
 
