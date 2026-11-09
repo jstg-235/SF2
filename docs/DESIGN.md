@@ -11,10 +11,10 @@ SF2 should be a single plugin that turns any tetrahedral (A-format) or first-ord
 The three headline recommendations:
 
 1. **Two decode engines in one plugin.** A clean linear engine (virtual mics and Ambisonic decoding, phase-coherent, low latency) for faithful work, and a parametric engine (direction plus diffuseness per time-frequency tile, in the Harpex/DirAC family) for sharper imaging, shotgun-style beams and upmixing to 3rd order.
-2. **Measured, per-capsule calibration as a first-class feature.** Load per-serial-number capsule data, then convert A to B with frequency-dependent matrices derived from that data, not a single average filter. This is where most of the real audio quality is won or lost.
+2. **Measured, per-capsule calibration as a first-class feature.** Build a measured profile for each supported mic model, let users refine it with their own unit's measurement, then convert A to B with frequency-dependent matrices derived from that data, not a single average filter. This is where most of the real audio quality is won or lost.
 3. **A visual-first interface.** A live sound-field heat map with virtual mics dragged directly on it, a fixed output section that follows the chosen format, and automation-friendly parameters throughout.
 
-The main open questions are licensing (free or paid), which mic models to support at launch, and whether a JUCE-based C++ stack is acceptable. They are listed at the end.
+Decided on 9 Nov 2026: SF2 launches free, supports five mics (NT-SF1, SPS200, Ambeo, TetraMic, H3-VR), skips AAX until there is an Avid developer account, and does not count on manufacturer capsule data. The JUCE licence question is still open; see the end.
 
 ## Reference products
 
@@ -39,7 +39,7 @@ Gaps worth filling in both: no head tracking, no metering per output, no capsule
 
 Version 1.0 ships only when every item below works; together they cover everything SoundField by RØDE does today.
 
-- [ ] A-format input for NT-SF1 and SoundField SPS200/ST450-class mics, with frequency-dependent A-to-B conversion
+- [ ] A-format input for RØDE NT-SF1, SoundField SPS200, Sennheiser Ambeo, Core Sound TetraMic and Zoom H3-VR (each with its own channel order and capsule geometry), with frequency-dependent A-to-B conversion
 - [ ] B-format input in FuMa (WXYZ, -3 dB W) and AmbiX (ACN/SN3D), with automatic channel-order and W-gain handling
 - [ ] Mic orientation: upright, inverted, end-fire (and arbitrary angle)
 - [ ] Whole-field rotation, tilt and tumble (yaw, pitch, roll)
@@ -50,8 +50,8 @@ Version 1.0 ships only when every item below works; together they cover everythi
 - [ ] Surround and immersive layouts: 5.1, 7.1, 5.1.2, 7.1.2, 5.1.4, 7.1.4
 - [ ] B-format output in FuMa and AmbiX
 - [ ] Full automation of every steering parameter, sample-accurate and zipper-free
-- [ ] VST3, AU and AAX on macOS (Intel and Apple silicon) and Windows
-- [ ] Hosts: Pro Tools, Logic Pro, Cubase/Nuendo, Reaper, Final Cut Pro (AU), DaVinci Resolve Fairlight (VST3)
+- [ ] VST3 and AU on macOS (Intel and Apple silicon), VST3 on Windows; AAX deferred until there is an Avid developer account
+- [ ] Hosts: Logic Pro, Cubase/Nuendo, Reaper, Final Cut Pro (AU), DaVinci Resolve Fairlight (VST3); Pro Tools arrives with AAX
 
 ## Improvements and new features
 
@@ -59,7 +59,7 @@ The highest-value additions are measured capsule calibration, a parametric engin
 
 | Priority | Feature | Why it matters | Inspired by |
 | --- | --- | --- | --- |
-| P1 | Per-capsule calibration profiles (load by mic serial, or measure your own) | Capsule mismatch is the biggest source of high-frequency spatial error | New |
+| P1 | Calibration profiles per mic model, refined by measuring your own unit | Capsule mismatch is the biggest source of high-frequency spatial error | New |
 | P1 | Linear / Parametric engine with a 0 to 100% "Sharpness" blend | Users pick faithful or focused imaging per track instead of per plugin | Harpex, DirAC |
 | P1 | Binaural output with SOFA HRTF loading, headphone EQ and head tracking (OSC, MIDI, IEM/Supperware-style trackers) | Most immersive delivery is now on headphones; neither reference tracks heads | Harpex (SOFA) |
 | P1 | Live sound-field heat map with virtual mics dragged on it | Aim mics at what you can see, not by numbers | Harpex display |
@@ -115,7 +115,7 @@ Every output, linear or parametric, is fed by the same calibrated A-to-B stage, 
 - Regularise with Tikhonov weighting that rises with frequency, so noise gain stays under about +6 dB at the top where the array is spatially aliased (above roughly 7 to 9 kHz for a 1.5 cm radius).
 - Above the aliasing frequency, fall back to an energy-preserving (diffuse-field equalised) solution, so timbre stays natural even when direction is ambiguous.
 - Apply as minimum-phase-plus-delay or linear-phase FIR (user choice): linear phase for music and sound design, minimum phase for low-latency live use.
-- Calibration sources, in order of preference: per-serial factory data, a user measurement made with SF2's built-in sweep and a turntable, then the model's generic profile.
+- Calibration sources: a generic profile per mic model, built from its published array geometry and our own anechoic or quasi-anechoic measurements of sample units; then an optional per-unit refinement the user makes with SF2's built-in sweep and a turntable. Manufacturer per-serial data is not expected, so the design must not depend on it.
 
 ### 3. Rotation and field shaping
 
@@ -201,7 +201,7 @@ Build in C++20 on JUCE 8 so one codebase ships VST3, AU, AAX and a standalone ap
 
 | Topic | Decision |
 | --- | --- |
-| Plugin formats | VST3, AU (incl. Logic surround), AAX (Pro Tools Ultimate multichannel), CLAP, standalone app for batch conversion |
+| Plugin formats | VST3, AU (incl. Logic surround), CLAP, standalone app for batch conversion; AAX later, once there is an Avid developer account |
 | Platforms | macOS 12+ universal (arm64 + x86_64), Windows 10+ x64 |
 | Channel layouts | In: 4 ch (A, FuMa, AmbiX, Double M/S). Out: 1, 2, 5.1, 7.1, 5.1.2, 7.1.2, 5.1.4, 7.1.4, 9.1.6, AmbiX 4/9/16 ch, binaural 2 ch, custom up to 16 (64 later) |
 | Ambisonic conventions | AmbiX (ACN/SN3D) internally; FuMa, N3D and channel orders converted at the edges |
@@ -217,17 +217,22 @@ Ship parity first as v1.0, then quality, then the parametric engine; each phase 
 
 | Phase | Scope | Gate to next phase |
 | --- | --- | --- |
-| 1. Core (v1.0) | Linear engine, A-to-B with stock profiles, all parity outputs, VST3/AU/AAX, automation and presets | Null tests pass |
+| 1. Core (v1.0) | Linear engine, A-to-B with stock profiles, all parity outputs, VST3/AU/CLAP, automation and presets | Null tests pass |
 | 2. Quality (v1.1) | Capsule calibration, sound-field heat map, binaural and SOFA, spaced stereo, metering and LFE | Blind A/B test |
 | 3. Parametric (v2.0) | Parametric engine, Sharpness blend, upmix to 3rd order, Direct and Room, head tracking | Beta feedback |
 | 4. Pro (v2.x) | Source-follow, noise-reject beams, video overlay, custom layouts, offline render | — |
 
 The blind A/B gate compares SF2 against SoundField by RØDE on the same NT-SF1 recordings; v1.1 should match or beat it before the parametric work starts. No dates are set yet.
 
-### Open questions
+### Decisions and open questions
 
-- [ ] Free, paid, or free core with a paid Pro tier?
-- [ ] Which mics at launch: NT-SF1 and SPS200 only, or also Ambeo, TetraMic, Zoom H3-VR?
-- [ ] Can we get per-serial capsule data from manufacturers, or do we rely on user measurement?
-- [ ] Is JUCE (commercial licence for closed source) acceptable, or should the project be open source under GPL?
-- [ ] Is AAX needed at v1.0? It requires an Avid developer account and PACE signing.
+Decided on 9 Nov 2026:
+
+- **Price:** free for now.
+- **Mics at launch:** all five: RØDE NT-SF1, SoundField SPS200, Sennheiser Ambeo, Core Sound TetraMic, Zoom H3-VR.
+- **Capsule data:** assume none from manufacturers; build our own per-model profiles and offer user measurement.
+- **AAX:** skipped until there is an Avid developer account; Pro Tools support follows then.
+
+Still open:
+
+- [ ] JUCE licence: the free Starter licence (closed source, revenue cap) or open source under AGPLv3.
