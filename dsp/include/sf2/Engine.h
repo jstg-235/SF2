@@ -52,7 +52,7 @@ struct EngineParams
     double gainDb         = 0.0;
     double lfeCutoffHz    = 120.0;
 
-    /** Shotgun focus for mono output: 0 = plain virtual mic, 1 = narrowest beam. */
+    /** Shotgun focus for mono output when shotgun mode is on: 0 = plain virtual mic, 1 = narrowest beam. */
     double shotgunFocus   = 0.0;
 };
 
@@ -85,9 +85,19 @@ public:
 
     int getNumOutputs() const noexcept { return numOutputs; }
 
-    /** Latency the host must compensate. Mono output runs through the shotgun STFT
-        (even at focus 0) so the latency does not change when focus is automated. */
+    /** Turns shotgun mode on or off. Only mono output uses it. Real-time safe (no allocation).
+        Switching changes getLatencySamples(), so the host's delay compensation must be updated. */
+    void setShotgunEnabled (bool shouldBeEnabled) noexcept;
+    bool isShotgunEnabled() const noexcept { return shotgunEnabled; }
+
+    /** Latency the host must compensate: the shotgun STFT length while shotgun mode runs on mono
+        output, otherwise 0. Focus can be automated freely without changing it. */
     int getLatencySamples() const noexcept { return usesShotgun() ? shotgun.getLatencySamples() : 0; }
+
+    /** Latency shotgun mode adds when it is on, for the current sample rate. */
+    int getShotgunLatencySamples() const noexcept { return shotgun.getLatencySamples(); }
+
+    bool isMonoOutput() const noexcept { return mode == OutputMode::Speakers && numOutputs == 1 && ! speakers[0].isLfe; }
     OutputMode getOutputMode() const noexcept { return mode; }
 
     /** Matrix from raw input channels to world-frame AmbiX, including orientation and rotation. */
@@ -110,7 +120,7 @@ private:
     };
 
     void updateLfeFilters (double cutoffHz) noexcept;
-    bool usesShotgun() const noexcept { return mode == OutputMode::Speakers && numOutputs == 1 && ! speakers[0].isLfe; }
+    bool usesShotgun() const noexcept { return shotgunEnabled && isMonoOutput(); }
     void processShotgun (const float* const* inputs, int usedInputs, float* out, int numSamples,
                          const EngineParams& params) noexcept;
 
@@ -129,6 +139,7 @@ private:
     std::array<std::array<Biquad, 2>, maxOutputs> lfeFilters {};  // Linkwitz-Riley 4th order = 2 Butterworth stages
 
     Shotgun shotgun;
+    bool shotgunEnabled = false;
     std::vector<float> worldScratch;       // numInputs * maxBlock, world-frame AmbiX for the shotgun
     Mat4 currentWorld {};
 };

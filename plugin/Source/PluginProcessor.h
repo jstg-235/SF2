@@ -6,11 +6,12 @@
 
 #include <atomic>
 
-class SF2AudioProcessor final : public juce::AudioProcessor
+class SF2AudioProcessor final : public juce::AudioProcessor,
+                                private juce::Timer
 {
 public:
     SF2AudioProcessor();
-    ~SF2AudioProcessor() override = default;
+    ~SF2AudioProcessor() override { stopTimer(); }
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -43,6 +44,7 @@ private:
     static constexpr int stateVersion = 1;
 
     void configureEngineForLayout();
+    void timerCallback() override;
     sf2::EngineParams readParams() const noexcept;
 
     sf2::Engine engine;
@@ -60,6 +62,11 @@ private:
     std::atomic<float>* lfeCutoff = nullptr;
     std::atomic<float>* bFormatOut = nullptr;
     std::atomic<float>* shotgunFocus = nullptr;
+    std::atomic<float>* shotgunOn = nullptr;
+
+    // Latency the audio thread wants reported. Applied on the message thread by the timer,
+    // because setLatencySamples() notifies the host and must not run on the audio thread.
+    std::atomic<int> wantedLatency { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SF2AudioProcessor)
 };

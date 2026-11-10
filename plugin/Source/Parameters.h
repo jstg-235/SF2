@@ -19,6 +19,7 @@ inline constexpr const char* gain         = "gain";
 inline constexpr const char* lfeCutoff    = "lfeCutoff";
 inline constexpr const char* bFormatOut   = "bFormatOut";
 inline constexpr const char* shotgunFocus = "shotgunFocus";
+inline constexpr const char* shotgun      = "shotgun";
 
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 

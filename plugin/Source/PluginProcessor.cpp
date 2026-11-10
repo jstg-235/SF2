@@ -64,6 +64,9 @@ SF2AudioProcessor::SF2AudioProcessor()
     lfeCutoff   = apvts.getRawParameterValue (p::lfeCutoff);
     bFormatOut  = apvts.getRawParameterValue (p::bFormatOut);
     shotgunFocus = apvts.getRawParameterValue (p::shotgunFocus);
+    shotgunOn    = apvts.getRawParameterValue (p::shotgun);
+
+    startTimerHz (10);
 }
 
 bool SF2AudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -101,6 +104,8 @@ void SF2AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     engine.prepare (sampleRate, samplesPerBlock);
     configureEngineForLayout();
+    engine.setShotgunEnabled (shotgunOn->load() > 0.5f);
+    wantedLatency.store (engine.getLatencySamples());
     setLatencySamples (engine.getLatencySamples());
 }
 
@@ -138,6 +143,10 @@ void SF2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             engine.setOutputLayout (wanted);
     }
 
+    // Shotgun on/off is real-time safe in the engine; the latency change is reported by the timer.
+    engine.setShotgunEnabled (shotgunOn->load() > 0.5f);
+    wantedLatency.store (engine.getLatencySamples(), std::memory_order_relaxed);
+
     const int numIn  = getTotalNumInputChannels();
     const int numOut = getTotalNumOutputChannels();
     const int channels = buffer.getNumChannels();
@@ -148,6 +157,13 @@ void SF2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
     for (int ch = numOut; ch < channels; ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
+}
+
+void SF2AudioProcessor::timerCallback()
+{
+    const int wanted = wantedLatency.load (std::memory_order_relaxed);
+    if (wanted != getLatencySamples())
+        setLatencySamples (wanted);
 }
 
 juce::AudioProcessorEditor* SF2AudioProcessor::createEditor()
