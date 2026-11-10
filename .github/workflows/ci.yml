@@ -17,7 +17,7 @@ jobs:
             os: ubuntu-24.04
             pluginval: pluginval_Linux.zip
           - name: macOS
-            os: macos-14
+            os: macos-latest
             pluginval: pluginval_macOS.zip
           - name: Windows
             os: windows-2022
