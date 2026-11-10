@@ -141,7 +141,7 @@ Every output, linear or parametric, is fed by the same calibrated A-to-B stage, 
 
 Why two plane waves rather than DirAC alone: in the Harpex listening tests, first-order input decoded this way matched 3rd-order Ambisonics on an 8-speaker ring (scores 68 vs 67, against 30 for plain 1st order), and on headphones it scored 61 against 39 for 3rd order and 75 for 5th order. It cost about 25% of one 2010 laptop core at 48 kHz, which supports our 8% M1 budget. Sources: [Berge & Barrett 2010, HARPEX](https://harpex.net/harpex.pdf), [Berge & Barrett, AES 40th Conference 2010](https://harpex.net/aes40-free.pdf).
 
-Before building this engine, check whether the two-plane-wave method is covered by a patent; this has not been verified, and it decides whether we implement it as published or design our own variant.
+Patent check: J Rock confirmed on 10 Nov 2026 that the method is not patented, so SF2 implements it as published.
 
 ### 6. Output stage
 
