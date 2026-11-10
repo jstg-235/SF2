@@ -52,6 +52,7 @@ Rendered renderMono (const Vec3& dir, double focus, int numSamples, int blockSiz
     Engine e;
     e.prepare (48000.0, blockSize);
     e.setOutputLayout (OutputMode::Speakers, { speakerForRole (SpeakerRole::Centre) });
+    e.setShotgunEnabled (true);
     EngineParams p;
     p.shotgunFocus = focus;
 
@@ -129,14 +130,34 @@ TEST (Shotgun, FullFocusRejectsTheSideMoreThanACardioid)
     EXPECT_LT (sideDb - frontDb, -15.0);    // a cardioid would only give -6 dB
 }
 
-TEST (Shotgun, LatencyIsReportedOnlyForMono)
+TEST (Shotgun, LatencyOnlyWhenOnAndMono)
 {
     Engine e;
     e.prepare (48000.0, 512);
-    e.setOutputLayout (OutputMode::Stereo);
-    EXPECT_EQ (e.getLatencySamples(), 0);
     e.setOutputLayout (OutputMode::Speakers, { speakerForRole (SpeakerRole::Centre) });
+    EXPECT_EQ (e.getLatencySamples(), 0);           // shotgun off: plain mono, no latency
+    e.setShotgunEnabled (true);
     EXPECT_EQ (e.getLatencySamples(), 1024);
+    e.setOutputLayout (OutputMode::Stereo);
+    EXPECT_EQ (e.getLatencySamples(), 0);           // shotgun applies to mono only
+    e.setOutputLayout (OutputMode::Speakers, { speakerForRole (SpeakerRole::Centre) });
     e.prepare (96000.0, 512);
     EXPECT_EQ (e.getLatencySamples(), 2048);
+}
+
+TEST (Shotgun, OffMeansPlainMonoWithoutDelay)
+{
+    Engine e;
+    e.prepare (48000.0, 64);
+    e.setOutputLayout (OutputMode::Speakers, { speakerForRole (SpeakerRole::Centre) });
+    EngineParams p;
+    p.inputFormat = InputFormat::AmbiX;
+    p.shotgunFocus = 1.0;   // ignored while shotgun is off
+
+    std::vector<float> w (64, 1.0f), zero (64, 0.0f), out (64, 0.0f);
+    const float* in[4] = { w.data(), zero.data(), zero.data(), zero.data() };
+    float* outs[1] = { out.data() };
+    e.process (in, 4, outs, 1, 64, p);
+    for (float v : out)
+        EXPECT_NEAR (v, 0.5f, 1e-6f);   // cardioid gives 0.5 for pure W, immediately
 }

@@ -136,6 +136,15 @@ Engine::GainMatrix Engine::computeGainMatrix (const EngineParams& params) const 
     return rows;
 }
 
+void Engine::setShotgunEnabled (bool shouldBeEnabled) noexcept
+{
+    if (shouldBeEnabled == shotgunEnabled)
+        return;
+    shotgunEnabled = shouldBeEnabled;
+    shotgun.reset();
+    snapToTarget = true;
+}
+
 void Engine::processShotgun (const float* const* inputs, int usedInputs, float* out, int numSamples,
                              const EngineParams& params) noexcept
 {
