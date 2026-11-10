@@ -15,6 +15,7 @@
 
 #include "AFormat.h"
 #include "MicProfiles.h"
+#include "Shotgun.h"
 #include "Speakers.h"
 
 #include <array>
@@ -50,6 +51,9 @@ struct EngineParams
     double stereoAngleDeg = 90.0;
     double gainDb         = 0.0;
     double lfeCutoffHz    = 120.0;
+
+    /** Shotgun focus for mono output: 0 = plain virtual mic, 1 = narrowest beam. */
+    double shotgunFocus   = 0.0;
 };
 
 class Engine
@@ -80,6 +84,10 @@ public:
     GainMatrix computeGainMatrix (const EngineParams& params) const noexcept;
 
     int getNumOutputs() const noexcept { return numOutputs; }
+
+    /** Latency the host must compensate. Mono output runs through the shotgun STFT
+        (even at focus 0) so the latency does not change when focus is automated. */
+    int getLatencySamples() const noexcept { return usesShotgun() ? shotgun.getLatencySamples() : 0; }
     OutputMode getOutputMode() const noexcept { return mode; }
 
     /** Matrix from raw input channels to world-frame AmbiX, including orientation and rotation. */
@@ -102,6 +110,9 @@ private:
     };
 
     void updateLfeFilters (double cutoffHz) noexcept;
+    bool usesShotgun() const noexcept { return mode == OutputMode::Speakers && numOutputs == 1 && ! speakers[0].isLfe; }
+    void processShotgun (const float* const* inputs, int usedInputs, float* out, int numSamples,
+                         const EngineParams& params) noexcept;
 
     double sampleRate = 48000.0;
     int maxBlock = 0;
@@ -116,6 +127,10 @@ private:
 
     double lfeCutoff = -1.0;
     std::array<std::array<Biquad, 2>, maxOutputs> lfeFilters {};  // Linkwitz-Riley 4th order = 2 Butterworth stages
+
+    Shotgun shotgun;
+    std::vector<float> worldScratch;       // numInputs * maxBlock, world-frame AmbiX for the shotgun
+    Mat4 currentWorld {};
 };
 
 } // namespace sf2

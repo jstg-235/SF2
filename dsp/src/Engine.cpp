@@ -34,6 +34,8 @@ void Engine::prepare (double newSampleRate, int maximumBlockSize)
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 48000.0;
     maxBlock = std::max (1, maximumBlockSize);
     scratch.assign (static_cast<std::size_t> (numInputs * maxBlock), 0.0f);
+    worldScratch.assign (static_cast<std::size_t> (numInputs * maxBlock), 0.0f);
+    shotgun.prepare (sampleRate);
     lfeCutoff = -1.0;
     reset();
 }
@@ -60,6 +62,7 @@ void Engine::reset() noexcept
     for (auto& pair : lfeFilters)
         for (auto& f : pair)
             f.clear();
+    shotgun.reset();
     snapToTarget = true;
 }
 
@@ -133,6 +136,58 @@ Engine::GainMatrix Engine::computeGainMatrix (const EngineParams& params) const 
     return rows;
 }
 
+void Engine::processShotgun (const float* const* inputs, int usedInputs, float* out, int numSamples,
+                             const EngineParams& params) noexcept
+{
+    const double gain = std::pow (10.0, params.gainDb / 20.0);
+    Mat4 target = inputToAmbiX (params);
+    for (auto& row : target)
+        for (auto& v : row)
+            v *= gain;
+
+    if (snapToTarget)
+    {
+        currentWorld = target;
+        snapToTarget = false;
+    }
+    const Mat4 from = currentWorld;
+
+    const Vec3 look = directionFromAzEl (speakers[0].azimuthDeg, speakers[0].elevationDeg);
+    const auto micRow = virtualMicRow (look, params.pattern);
+    const double inv = 1.0 / numSamples;
+
+    for (int start = 0; start < numSamples; start += maxBlock)
+    {
+        const int len = std::min (maxBlock, numSamples - start);
+
+        for (int ch = 0; ch < numInputs; ++ch)
+        {
+            float* dst = scratch.data() + ch * maxBlock;
+            if (ch < usedInputs && inputs[ch] != nullptr)
+                std::copy_n (inputs[ch] + start, len, dst);
+            else
+                std::fill_n (dst, len, 0.0f);
+        }
+
+        const float* x[4] = { scratch.data(), scratch.data() + maxBlock, scratch.data() + 2 * maxBlock, scratch.data() + 3 * maxBlock };
+        float* world[4] = { worldScratch.data(), worldScratch.data() + maxBlock, worldScratch.data() + 2 * maxBlock, worldScratch.data() + 3 * maxBlock };
+
+        for (std::size_t r = 0; r < 4; ++r)
+            for (int i = 0; i < len; ++i)
+            {
+                const double t = static_cast<double> (start + i + 1) * inv;
+                double s = 0.0;
+                for (std::size_t c = 0; c < 4; ++c)
+                    s += (from[r][c] + (target[r][c] - from[r][c]) * t) * x[c][i];
+                world[r][i] = static_cast<float> (s);
+            }
+
+        shotgun.process (world, len, micRow, look, params.shotgunFocus, out + start);
+    }
+
+    currentWorld = target;
+}
+
 void Engine::updateLfeFilters (double cutoffHz) noexcept
 {
     const double fc = std::clamp (cutoffHz, 20.0, 0.45 * sampleRate);
@@ -164,6 +219,16 @@ void Engine::process (const float* const* inputs, int numInputChannels,
         return;
 
     updateLfeFilters (params.lfeCutoffHz);
+
+    if (usesShotgun())
+    {
+        if (numOutputChannels > 0 && outputs[0] != nullptr)
+            processShotgun (inputs, std::clamp (numInputChannels, 0, numInputs), outputs[0], numSamples, params);
+        for (int o = 1; o < numOutputChannels; ++o)
+            if (outputs[o] != nullptr)
+                std::fill_n (outputs[o], numSamples, 0.0f);
+        return;
+    }
 
     const GainMatrix target = computeGainMatrix (params);
     if (snapToTarget)

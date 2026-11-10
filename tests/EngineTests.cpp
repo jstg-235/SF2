@@ -158,22 +158,23 @@ TEST (Engine, ParameterChangesRampWithoutJumps)
     Engine e;
     const int n = 512;
     e.prepare (48000.0, n);
-    e.setOutputLayout (OutputMode::Speakers, speakers ({ SpeakerRole::Centre }));
+    e.setOutputLayout (OutputMode::AmbiX);
     EngineParams p;
     p.inputFormat = InputFormat::AmbiX;
-    p.pattern = 1.0;
 
-    std::vector<float> w (n, 0.0f), y (n, 0.0f), z (n, 0.0f), x (n, 1.0f), out (n, 0.0f);
+    std::vector<float> w (n, 0.0f), y (n, 0.0f), z (n, 0.0f), x (n, 1.0f);
+    std::vector<std::vector<float>> out (4, std::vector<float> (n, 0.0f));
     const float* in[4] = { w.data(), y.data(), z.data(), x.data() };
-    float* outs[1] = { out.data() };
+    float* outs[4] = { out[0].data(), out[1].data(), out[2].data(), out[3].data() };
 
-    e.process (in, 4, outs, 1, n, p);   // settles at yaw 0: output = 1
-    p.yawDeg = 180.0;                   // target output = -1
-    e.process (in, 4, outs, 1, n, p);
+    e.process (in, 4, outs, 4, n, p);   // settles at yaw 0: X out = 1
+    p.yawDeg = 180.0;                   // target X out = -1
+    e.process (in, 4, outs, 4, n, p);
 
-    EXPECT_NEAR (out.back(), -1.0f, 1e-5f);
+    const auto& xo = out[3];
+    EXPECT_NEAR (xo.back(), -1.0f, 1e-5f);
     for (int i = 1; i < n; ++i)
-        EXPECT_LT (std::abs (out[static_cast<std::size_t> (i)] - out[static_cast<std::size_t> (i - 1)]), 0.01f);
+        EXPECT_LT (std::abs (xo[static_cast<std::size_t> (i)] - xo[static_cast<std::size_t> (i - 1)]), 0.01f);
 }
 
 TEST (Engine, LfeIsLowPassed)

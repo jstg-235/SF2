@@ -55,6 +55,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
                     AudioParameterFloatAttributes().withLabel ("Hz")));
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { bFormatOut, 1 }, "B-format output",
                     StringArray { "AmbiX", "FuMa" }, 0));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { shotgunFocus, 1 }, "Shotgun focus (mono)",
+                    NormalisableRange<float> (0.0f, 100.0f, 1.0f), 0.0f,
+                    AudioParameterFloatAttributes().withLabel ("%")));
 
     return layout;
 }

@@ -63,6 +63,7 @@ SF2AudioProcessor::SF2AudioProcessor()
     gain        = apvts.getRawParameterValue (p::gain);
     lfeCutoff   = apvts.getRawParameterValue (p::lfeCutoff);
     bFormatOut  = apvts.getRawParameterValue (p::bFormatOut);
+    shotgunFocus = apvts.getRawParameterValue (p::shotgunFocus);
 }
 
 bool SF2AudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -100,7 +101,7 @@ void SF2AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     engine.prepare (sampleRate, samplesPerBlock);
     configureEngineForLayout();
-    setLatencySamples (0);
+    setLatencySamples (engine.getLatencySamples());
 }
 
 void SF2AudioProcessor::reset()
@@ -121,6 +122,7 @@ sf2::EngineParams SF2AudioProcessor::readParams() const noexcept
     p.stereoAngleDeg = stereoAngle->load();
     p.gainDb         = gain->load();
     p.lfeCutoffHz    = lfeCutoff->load();
+    p.shotgunFocus   = shotgunFocus->load() / 100.0;
     return p;
 }
 

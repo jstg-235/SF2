@@ -12,6 +12,7 @@ add_executable(sf2dsp_tests
     AFormatTests.cpp
     EngineTests.cpp
     GeometryTests.cpp
+    ShotgunTests.cpp
 )
 target_link_libraries(sf2dsp_tests PRIVATE sf2dsp GTest::gtest_main)
 

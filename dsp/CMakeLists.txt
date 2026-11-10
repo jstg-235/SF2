@@ -1,7 +1,9 @@
 add_library(sf2dsp STATIC
     src/AFormat.cpp
     src/Engine.cpp
+    src/Fft.cpp
     src/MicProfiles.cpp
+    src/Shotgun.cpp
     src/Speakers.cpp
 )
 

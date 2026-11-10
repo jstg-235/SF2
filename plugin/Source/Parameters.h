@@ -18,6 +18,7 @@ inline constexpr const char* stereoAngle  = "stereoAngle";
 inline constexpr const char* gain         = "gain";
 inline constexpr const char* lfeCutoff    = "lfeCutoff";
 inline constexpr const char* bFormatOut   = "bFormatOut";
+inline constexpr const char* shotgunFocus = "shotgunFocus";
 
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 

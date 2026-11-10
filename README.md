@@ -11,6 +11,7 @@ v1.0 core in progress: the linear engine.
 - B-format input in FuMa or AmbiX
 - Mic orientation (upright, inverted, end-fire) and scene rotate, tilt and tumble
 - Virtual mics from omni to figure-8 for mono, stereo and any surround or immersive host layout up to 16 channels (5.1, 7.1, 5.1.2, 7.1.2, 5.1.4, 7.1.4, ...), with LFE low-pass
+- Shotgun focus on mono output: a frequency-domain beam narrower than hypercardioid (adds 1024 samples of latency at 48 kHz, reported to the host)
 - First-order B-format output in AmbiX or FuMa
 - VST3 and Standalone on all platforms, AU on macOS. AAX later.
 - The editor is JUCE's generic parameter view until the sound-field UI is built.

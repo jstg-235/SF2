@@ -59,6 +59,7 @@ private:
     std::atomic<float>* gain = nullptr;
     std::atomic<float>* lfeCutoff = nullptr;
     std::atomic<float>* bFormatOut = nullptr;
+    std::atomic<float>* shotgunFocus = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SF2AudioProcessor)
 };
