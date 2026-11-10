@@ -2,11 +2,12 @@
 
 // Tetrahedral (A-format) microphone profiles.
 //
-// v1.0 uses an idealised first-order capsule model: each capsule's response is
+// Each capsule is modelled as a first-order pattern
 //   r(d) = omniPart + dipolePart * (capsuleAxis . d)
-// with a coincident array. Frequency-dependent, measured calibration
-// (capsule spacing, per-unit magnitude/phase) arrives in the v1.1 "Quality"
-// phase; see docs/DESIGN.md, section "A-to-B conversion".
+// placed at radiusMetres * capsuleAxis from the array centre. The frequency-independent A-to-B
+// matrix treats the array as coincident; the spacing correction (ArrayCorrection.h) uses the
+// radius to fix the high-frequency errors the capsule spacing causes.
+// See docs/DESIGN.md, section "A-to-B conversion".
 
 #include "Geometry.h"
 
@@ -37,6 +38,10 @@ struct MicProfile
     /** First-order capsule pattern: omniPart + dipolePart * cos(theta). Cardioid = 0.5 / 0.5. */
     double omniPart   = 0.5;
     double dipolePart = 0.5;
+
+    /** Distance from the array centre to each capsule's diaphragm, in metres.
+        These are estimates from published array sizes, to be replaced by our own measurements. */
+    double radiusMetres = 0.0147;
 };
 
 /** All five supported models share the common A-format channel order

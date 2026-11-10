@@ -19,6 +19,9 @@ namespace
     }
 } // namespace
 
+juce::String capsuleTrim (int capsule)   { return "capsuleTrim" + juce::String (capsule); }
+juce::String capsuleInvert (int capsule) { return "capsuleInvert" + juce::String (capsule); }
+
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 {
     using namespace juce;
@@ -59,6 +62,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { shotgunFocus, 1 }, "Shotgun focus (mono)",
                     NormalisableRange<float> (0.0f, 100.0f, 1.0f), 50.0f,
                     AudioParameterFloatAttributes().withLabel ("%")));
+
+    // v1.1
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { spacingCorrection, 2 }, "Capsule spacing correction", true));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { windHighPass, 2 }, "Wind high-pass",
+                    NormalisableRange<float> (0.0f, 200.0f, 1.0f), 0.0f,
+                    AudioParameterFloatAttributes().withStringFromValueFunction (
+                        [] (float v, int) { return v < 10.0f ? String ("Off") : String (roundToInt (v)) + " Hz"; })));
+    for (int c = 1; c <= 4; ++c)
+    {
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { capsuleTrim (c), 2 }, "Capsule " + String (c) + " trim",
+                        NormalisableRange<float> (-6.0f, 6.0f, 0.01f), 0.0f, AudioParameterFloatAttributes().withLabel ("dB")));
+        layout.add (std::make_unique<AudioParameterBool> (ParameterID { capsuleInvert (c), 2 }, "Capsule " + String (c) + " polarity invert", false));
+    }
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { stereoType, 2 }, "Stereo output",
+                    StringArray { "Coincident pair", "Spaced AB", "ORTF", "NOS", "DIN", "Binaural (headphones)" }, 0));
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { abSpacing, 2 }, "AB spacing",
+                    NormalisableRange<float> (5.0f, 100.0f, 0.5f), 40.0f, AudioParameterFloatAttributes().withLabel ("cm")));
 
     return layout;
 }

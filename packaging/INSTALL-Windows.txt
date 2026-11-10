@@ -1,0 +1,17 @@
+SF2 for Windows (64-bit)
+========================
+
+Contents
+  SF2.vst3   VST3 plug-in
+  SF2.exe    Standalone app
+
+Install
+  1. Copy the SF2.vst3 folder to C:\Program Files\Common Files\VST3\
+  2. Restart your DAW and rescan plug-ins.
+  This build is not code-signed yet; if Windows SmartScreen warns about SF2.exe choose
+  "More info" then "Run anyway".
+
+Use
+  Put SF2 on a 4-channel track carrying your A-format (or B-format) recording, pick your
+  microphone and the output format. Binaural: set "Stereo output" to Binaural on a stereo
+  output; "Load SOFA..." takes any .sofa HRTF file.

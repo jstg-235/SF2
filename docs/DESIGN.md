@@ -231,6 +231,14 @@ Ship parity first as v1.0, then quality, then the parametric engine; each phase 
 
 The blind A/B gate compares SF2 against SoundField by RØDE on the same NT-SF1 recordings; v1.1 should match or beat it before the parametric work starts. No dates are set yet.
 
+### What v1.1 shipped (10 Nov 2026)
+
+- **Calibration:** per-model capsule spacing correction (section 2), built from a physical model with estimated capsule radii, as linear-phase FIRs of 64 taps at 48 kHz (latency 32 samples). Per-capsule trim, polarity and wind high-pass. Still to come: our own measurements of real units to replace the estimated radii and model capsule directivity versus frequency, and the user turntable measurement.
+- **Spaced stereo:** AB, ORTF, NOS and DIN. A linear decode-and-delay approach was tried first and gave under half the true time difference (first-order lobes are too broad), so the pairs are parametric like Harpex's stereo mode: per STFT bin the intensity direction sets each mic's time of arrival as a phase shift, with the per-bin phase factors smoothed over time. Latency is the STFT length (1024 samples at 48 kHz).
+- **Binaural:** 26 virtual speakers with a dual-band decode (exact below 700 Hz, max-rE above), collapsed into 8 FIRs (each B-format channel to each ear). HRTFs from a built-in Brown and Duda spherical head model or any SOFA file via libmysofa (resampled, diffuse-field equalised). Latency 1 ms. Head tracking is by automating yaw, pitch and roll for now; OSC and tracker input come with v2.0, as do headphone EQ and the group-delay phase fix, which belong to the parametric binaural path.
+- **Window:** sound-field heat map from the B-format covariance (steered hypercardioid power), with output markers and drag-to-rotate; capsule and output meters; latency readout. Snapshots, presets, solo-listen and per-output strips are still to do.
+- **Releases:** every push to `main` publishes zips for macOS, Windows and Linux on the GitHub release for the current version.
+
 ### Decisions
 
 Decided on 9 Nov 2026:

@@ -37,6 +37,7 @@ juce_add_plugin(SF2
     AU_MAIN_TYPE kAudioUnitType_Effect)
 
 target_sources(SF2 PRIVATE
+    Source/PluginEditor.cpp
     Source/PluginProcessor.cpp
     Source/Parameters.cpp)
 
@@ -46,6 +47,13 @@ target_compile_definitions(SF2 PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0)
 
+if(TARGET sf2sofa)
+    target_link_libraries(SF2 PRIVATE sf2sofa)
+    target_compile_definitions(SF2 PRIVATE SF2_WITH_SOFA=1)
+else()
+    target_compile_definitions(SF2 PRIVATE SF2_WITH_SOFA=0)
+endif()
+
 target_link_libraries(SF2
     PRIVATE
         sf2dsp
@@ -54,3 +62,12 @@ target_link_libraries(SF2
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# Developer tool: renders the window to a PNG (tools/Screenshot.cpp). Off by default.
+option(SF2_BUILD_DEVTOOLS "Build developer tools" OFF)
+if(SF2_BUILD_DEVTOOLS)
+    juce_add_console_app(SF2Screenshot PRODUCT_NAME "SF2Screenshot")
+    target_sources(SF2Screenshot PRIVATE ${CMAKE_SOURCE_DIR}/tools/Screenshot.cpp)
+    target_compile_definitions(SF2Screenshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(SF2Screenshot PRIVATE SF2 sf2dsp juce::juce_audio_utils juce::juce_recommended_config_flags)
+endif()

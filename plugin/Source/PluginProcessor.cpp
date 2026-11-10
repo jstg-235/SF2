@@ -1,5 +1,10 @@
 #include "PluginProcessor.h"
 #include "Parameters.h"
+#include "PluginEditor.h"
+
+#if SF2_WITH_SOFA
+ #include <sf2/SofaFile.h>
+#endif
 
 #include <optional>
 
@@ -65,6 +70,15 @@ SF2AudioProcessor::SF2AudioProcessor()
     bFormatOut  = apvts.getRawParameterValue (p::bFormatOut);
     shotgunFocus = apvts.getRawParameterValue (p::shotgunFocus);
     shotgunOn    = apvts.getRawParameterValue (p::shotgun);
+    spacingCorrection = apvts.getRawParameterValue (p::spacingCorrection);
+    windHighPass = apvts.getRawParameterValue (p::windHighPass);
+    stereoType   = apvts.getRawParameterValue (p::stereoType);
+    abSpacing    = apvts.getRawParameterValue (p::abSpacing);
+    for (int c = 0; c < 4; ++c)
+    {
+        capsuleTrim[static_cast<std::size_t> (c)]   = apvts.getRawParameterValue (p::capsuleTrim (c + 1));
+        capsuleInvert[static_cast<std::size_t> (c)] = apvts.getRawParameterValue (p::capsuleInvert (c + 1));
+    }
 
     startTimerHz (10);
 }
@@ -102,11 +116,13 @@ void SF2AudioProcessor::configureEngineForLayout()
 
 void SF2AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    currentSampleRate = sampleRate;
     engine.prepare (sampleRate, samplesPerBlock);
     configureEngineForLayout();
     engine.setShotgunEnabled (shotgunOn->load() > 0.5f);
-    wantedLatency.store (engine.getLatencySamples());
-    setLatencySamples (engine.getLatencySamples());
+    const int latency = engine.getLatencySamples (readParams());
+    wantedLatency.store (latency);
+    setLatencySamples (latency);
 }
 
 void SF2AudioProcessor::reset()
@@ -128,6 +144,15 @@ sf2::EngineParams SF2AudioProcessor::readParams() const noexcept
     p.gainDb         = gain->load();
     p.lfeCutoffHz    = lfeCutoff->load();
     p.shotgunFocus   = shotgunFocus->load() / 100.0;
+    p.spacingCorrection = spacingCorrection->load() > 0.5f;
+    p.windHighPassHz = windHighPass->load() < 10.0f ? 0.0 : windHighPass->load();
+    p.stereoType     = static_cast<sf2::StereoType> (juce::roundToInt (stereoType->load()));
+    p.abSpacingCm    = abSpacing->load();
+    for (std::size_t c = 0; c < 4; ++c)
+    {
+        p.capsuleTrimDb[c] = capsuleTrim[c]->load();
+        p.capsuleInvert[c] = capsuleInvert[c]->load() > 0.5f;
+    }
     return p;
 }
 
@@ -143,9 +168,11 @@ void SF2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             engine.setOutputLayout (wanted);
     }
 
-    // Shotgun on/off is real-time safe in the engine; the latency change is reported by the timer.
+    // Shotgun, spacing correction and the stereo type change the latency; the engine handles the
+    // switch in real time and the timer reports the new latency to the host.
     engine.setShotgunEnabled (shotgunOn->load() > 0.5f);
-    wantedLatency.store (engine.getLatencySamples(), std::memory_order_relaxed);
+    const auto params = readParams();
+    wantedLatency.store (engine.getLatencySamples (params), std::memory_order_relaxed);
 
     const int numIn  = getTotalNumInputChannels();
     const int numOut = getTotalNumOutputChannels();
@@ -153,7 +180,7 @@ void SF2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
     engine.process (buffer.getArrayOfReadPointers(), juce::jmin (numIn, channels),
                     buffer.getArrayOfWritePointers(), juce::jmin (numOut, channels),
-                    buffer.getNumSamples(), readParams());
+                    buffer.getNumSamples(), params);
 
     for (int ch = numOut; ch < channels; ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
@@ -164,27 +191,124 @@ void SF2AudioProcessor::timerCallback()
     const int wanted = wantedLatency.load (std::memory_order_relaxed);
     if (wanted != getLatencySamples())
         setLatencySamples (wanted);
+
+    engine.getBinaural().pumpPendingFilters();
 }
 
 juce::AudioProcessorEditor* SF2AudioProcessor::createEditor()
 {
-    // Placeholder until the sound-field editor (docs/DESIGN.md, "Interface design") is built.
-    return new juce::GenericAudioProcessorEditor (*this);
+    return new SF2AudioProcessorEditor (*this);
+}
+
+bool SF2AudioProcessor::loadSofa (const juce::File& file, juce::String& error)
+{
+#if SF2_WITH_SOFA
+    std::string why;
+    const auto set = sf2::loadSofaFile (file.getFullPathName().toStdString(), why);
+    if (! set.has_value() || ! engine.getBinaural().setHrirs (*set))
+    {
+        error = file.getFileName() + ": " + juce::String (why.empty() ? "no usable impulse responses" : why);
+        return false;
+    }
+    sofaFile = file;
+    hrtfProblem = {};
+    return true;
+#else
+    juce::ignoreUnused (file);
+    error = "This build has no SOFA support.";
+    return false;
+#endif
+}
+
+void SF2AudioProcessor::useHeadModel()
+{
+    engine.getBinaural().useHeadModel();
+    sofaFile = juce::File();
+    hrtfProblem = {};
+}
+
+juce::String SF2AudioProcessor::getHrtfName() const
+{
+    return sofaFile == juce::File() ? juce::String ("Built-in head model") : sofaFile.getFileNameWithoutExtension();
+}
+
+juce::String SF2AudioProcessor::getOutputDescription() const
+{
+    const auto out = getChannelLayoutOfBus (false, 0);
+    if (out == juce::AudioChannelSet::ambisonic (1))
+        return "B-format";
+    if (out == juce::AudioChannelSet::mono())
+        return "Mono";
+    if (out == juce::AudioChannelSet::stereo())
+        return "Stereo";
+    return out.getDescription();
+}
+
+std::vector<SF2AudioProcessor::Marker> SF2AudioProcessor::getMarkers() const
+{
+    std::vector<Marker> markers;
+    const auto out = getChannelLayoutOfBus (false, 0);
+    if (out == juce::AudioChannelSet::ambisonic (1))
+        return markers;
+
+    const auto p = readParams();
+    if (out == juce::AudioChannelSet::stereo())
+    {
+        if (p.stereoType == sf2::StereoType::Binaural)
+            return { { 90.0, 0.0, "L ear" }, { -90.0, 0.0, "R ear" } };
+        const auto cfg = sf2::pairConfigFor (p.stereoType, p.abSpacingCm, p.pattern, p.stereoAngleDeg);
+        if (cfg.halfAngleDeg < 0.5)
+            return { { 0.0, 0.0, "L+R" } };
+        return { { cfg.halfAngleDeg, 0.0, "L" }, { -cfg.halfAngleDeg, 0.0, "R" } };
+    }
+
+    for (auto type : out.getChannelTypes())
+    {
+        const auto role = roleFor (type);
+        if (! role.has_value())
+            continue;
+        const auto spk = sf2::speakerForRole (*role);
+        if (! spk.isLfe)
+            markers.push_back ({ spk.azimuthDeg, spk.elevationDeg, juce::AudioChannelSet::getAbbreviatedChannelTypeName (type) });
+    }
+    return markers;
 }
 
 void SF2AudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("stateVersion", stateVersion, nullptr);
+    state.setProperty ("sofaFile", sofaFile.getFullPathName(), nullptr);
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
 void SF2AudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (auto xml = getXmlFromBinary (data, sizeInBytes))
-        if (xml->hasTagName (apvts.state.getType()))
-            apvts.replaceState (juce::ValueTree::fromXml (*xml));   // migrate on stateVersion here when it changes
+    auto xml = getXmlFromBinary (data, sizeInBytes);
+    if (xml == nullptr || ! xml->hasTagName (apvts.state.getType()))
+        return;
+
+    // Version 1 states simply lack the v1.1 parameters, which then keep their defaults.
+    auto state = juce::ValueTree::fromXml (*xml);
+    const auto path = state.getProperty ("sofaFile").toString();
+    state.removeProperty ("sofaFile", nullptr);
+    apvts.replaceState (state);
+
+    if (path.isEmpty() || ! juce::File::isAbsolutePath (path))
+    {
+        if (sofaFile != juce::File())
+            useHeadModel();
+        return;
+    }
+
+    juce::String error;
+    const juce::File file (path);
+    if (! loadSofa (file, error))
+    {
+        useHeadModel();
+        hrtfProblem = "Could not load " + file.getFileName() + ", using the head model. " + error;
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

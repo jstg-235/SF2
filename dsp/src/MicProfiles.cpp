@@ -12,11 +12,12 @@ namespace
     const std::array<Vec3, 4> standardTetrahedron { { { k, k, k }, { k, -k, -k }, { -k, k, -k }, { -k, -k, k } } };
 
     const std::array<MicProfile, numMicModels> profiles { {
-        { "RODE NT-SF1",          standardTetrahedron, 0.5, 0.5 },
-        { "SoundField SPS200",    standardTetrahedron, 0.5, 0.5 },
-        { "Sennheiser AMBEO VR",  standardTetrahedron, 0.5, 0.5 },
-        { "Core Sound TetraMic",  standardTetrahedron, 0.5, 0.5 },
-        { "Zoom H3-VR (A-format)", standardTetrahedron, 0.5, 0.5 },
+        // Radii are estimates from published capsule sizes and array photos, not measurements.
+        { "RODE NT-SF1",           standardTetrahedron, 0.5, 0.5, 0.0147 },
+        { "SoundField SPS200",     standardTetrahedron, 0.5, 0.5, 0.0147 },
+        { "Sennheiser AMBEO VR",   standardTetrahedron, 0.5, 0.5, 0.0140 },
+        { "Core Sound TetraMic",   standardTetrahedron, 0.5, 0.5, 0.0135 },
+        { "Zoom H3-VR (A-format)", standardTetrahedron, 0.5, 0.5, 0.0100 },
     } };
 } // namespace
 
