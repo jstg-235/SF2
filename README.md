@@ -7,7 +7,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the research and design.
 
 ## Download
 
-Ready-to-use builds for macOS (VST3, AU, standalone app), Windows (VST3, app) and Linux (VST3, app) are on the
+Ready-to-use macOS builds (VST3, AU, standalone app; Windows and Linux are paused for now) are on the
 [Releases page](https://github.com/jstg-235/SF2/releases). Unzip and follow `INSTALL.txt`. Builds are not code-signed yet.
 
 ## Status
@@ -57,7 +57,7 @@ ctest --test-dir build -C Release
 
 Options: `-DSF2_BUILD_PLUGIN=OFF` builds only the DSP library and tests; `-DSF2_WITH_SOFA=OFF` leaves out SOFA loading; `-DSF2_JUCE_PATH=/path/to/JUCE` uses a local JUCE checkout.
 
-Every push to `main` builds, tests and validates on all three platforms and publishes the zips as the GitHub release for the version in `CMakeLists.txt`.
+Every push to `main` builds, tests and validates on macOS and publishes the zip as the GitHub release for the version in `CMakeLists.txt`.
 
 On Linux, install JUCE's dependencies first:
 
