@@ -13,19 +13,17 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
+        # Mac only for now (J Rock, 11 Nov 2026). Windows and Linux can come back by adding:
+        #   - { name: Windows, os: windows-2022, pluginval: pluginval_Windows.zip }
+        #   - { name: Linux, os: ubuntu-24.04, pluginval: pluginval_Linux.zip }
         include:
-          - name: Linux
-            os: ubuntu-24.04
-            pluginval: pluginval_Linux.zip
           - name: macOS
-            os: macos-latest
+            os: macos-15
             pluginval: pluginval_macOS.zip
-          - name: Windows
-            os: windows-2022
-            pluginval: pluginval_Windows.zip
 
     steps:
       - uses: actions/checkout@v4
