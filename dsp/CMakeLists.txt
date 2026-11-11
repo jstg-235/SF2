@@ -1,10 +1,15 @@
 add_library(sf2dsp STATIC
     src/AFormat.cpp
+    src/ArrayCorrection.cpp
+    src/Binaural.cpp
     src/Engine.cpp
     src/Fft.cpp
     src/MicProfiles.cpp
     src/Shotgun.cpp
+    src/SoundFieldMap.cpp
+    src/SpacedPair.cpp
     src/Speakers.cpp
+    src/VirtualSpeakers.cpp
 )
 
 target_include_directories(sf2dsp PUBLIC include)

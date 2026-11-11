@@ -12,9 +12,16 @@ add_executable(sf2dsp_tests
     AFormatTests.cpp
     EngineTests.cpp
     GeometryTests.cpp
+    QualityTests.cpp
     ShotgunTests.cpp
 )
 target_link_libraries(sf2dsp_tests PRIVATE sf2dsp GTest::gtest_main)
+
+if(TARGET sf2sofa)
+    target_sources(sf2dsp_tests PRIVATE SofaTests.cpp)
+    target_link_libraries(sf2dsp_tests PRIVATE sf2sofa)
+    target_compile_definitions(sf2dsp_tests PRIVATE SF2_TEST_SOFA_FILE="${SF2_TEST_SOFA_FILE}")
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(sf2dsp_tests)

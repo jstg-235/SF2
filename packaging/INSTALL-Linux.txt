@@ -1,0 +1,15 @@
+SF2 for Linux (x86-64)
+======================
+
+Contents
+  SF2.vst3   VST3 plug-in
+  SF2        Standalone app
+
+Install
+  1. Copy the SF2.vst3 folder to ~/.vst3/
+  2. Restart your DAW (Reaper, Bitwig, Ardour...) and rescan plug-ins.
+
+Use
+  Put SF2 on a 4-channel track carrying your A-format (or B-format) recording, pick your
+  microphone and the output format. Binaural: set "Stereo output" to Binaural on a stereo
+  output; "Load SOFA..." takes any .sofa HRTF file.

@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -60,12 +64,55 @@ jobs:
           VST3=$(find build/plugin/SF2_artefacts -name "SF2.vst3" -maxdepth 3 | head -n 1)
           "$PV" --strictness-level 7 --skip-gui-tests --validate-in-process --validate "$VST3"
 
-      - name: Upload plugins
+      - name: Package
+        shell: bash
+        run: |
+          VERSION=$(sed -n 's/^project(SF2 VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          ART=build/plugin/SF2_artefacts/Release
+          mkdir -p dist/SF2
+          cp -R "$ART/VST3/SF2.vst3" dist/SF2/
+          if [ -d "$ART/AU" ]; then cp -R "$ART/AU/SF2.component" dist/SF2/; fi
+          cp -R "$ART/Standalone/"* dist/SF2/
+          cp "packaging/INSTALL-$RUNNER_OS.txt" dist/SF2/INSTALL.txt
+          ZIP="SF2-$VERSION-$RUNNER_OS.zip"
+          case "$RUNNER_OS" in
+            macOS)   (cd dist && ditto -c -k --keepParent SF2 "../$ZIP") ;;
+            Windows) (cd dist && 7z a -tzip "../$ZIP" SF2 > /dev/null) ;;
+            *)       (cd dist && zip -qry "../$ZIP" SF2) ;;
+          esac
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Upload package
         uses: actions/upload-artifact@v4
         with:
           name: SF2-${{ runner.os }}
-          path: |
-            build/plugin/SF2_artefacts/Release/VST3
-            build/plugin/SF2_artefacts/Release/AU
-            build/plugin/SF2_artefacts/Release/Standalone
-          if-no-files-found: ignore
+          path: ${{ env.ZIP }}
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(sed -n 's/^project(SF2 VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          TAG="v$VERSION"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" packages/*.zip --clobber
+          else
+            gh release create "$TAG" packages/*.zip --target "$GITHUB_SHA" --title "SF2 $VERSION" \
+              --notes "Downloads for macOS (VST3, AU, app), Windows (VST3, app) and Linux (VST3, app). Unzip and see INSTALL.txt. Builds are not code-signed yet."
+          fi

@@ -1,0 +1,20 @@
+SF2 for macOS (Apple Silicon and Intel)
+=======================================
+
+Contents
+  SF2.vst3       VST3 plug-in
+  SF2.component  Audio Unit plug-in
+  SF2.app        Standalone app
+
+Install
+  1. Copy SF2.vst3 to      ~/Library/Audio/Plug-Ins/VST3/
+  2. Copy SF2.component to ~/Library/Audio/Plug-Ins/Components/
+  3. This build is not signed by Apple yet, so macOS blocks it the first time. In Terminal run:
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/SF2.vst3
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/SF2.component
+     (and the same for SF2.app if you use it), then restart your DAW and rescan plug-ins.
+
+Use
+  Put SF2 on a 4-channel track carrying your A-format (or B-format) recording, pick your
+  microphone and the output format. Binaural: set "Stereo output" to Binaural on a stereo
+  output; "Load SOFA..." takes any .sofa HRTF file.
