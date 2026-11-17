@@ -9,12 +9,12 @@
 namespace sf2
 {
 
-void SpacedPair::prepare (double newSampleRate, int)
+void SpacedPair::prepare (double newSampleRate, int, int baseFftSize)
 {
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 48000.0;
 
-    fftSize = 256;
-    while (fftSize < static_cast<int> (1024.0 * sampleRate / 48000.0))
+    fftSize = 64;
+    while (fftSize < static_cast<int> (baseFftSize * sampleRate / 48000.0))
         fftSize *= 2;
     hop = fftSize / 2;
     fft.prepare (fftSize);

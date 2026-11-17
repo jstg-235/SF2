@@ -12,6 +12,7 @@ add_executable(sf2dsp_tests
     AFormatTests.cpp
     EngineTests.cpp
     GeometryTests.cpp
+    LiveModeTests.cpp
     QualityTests.cpp
     ShotgunTests.cpp
 )

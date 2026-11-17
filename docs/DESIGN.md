@@ -239,6 +239,19 @@ The blind A/B gate compares SF2 against SoundField by RØDE on the same NT-SF1 r
 - **Window:** sound-field heat map from the B-format covariance (steered hypercardioid power), with output markers and drag-to-rotate; capsule and output meters; latency readout. Snapshots, presets, solo-listen and per-output strips are still to do.
 - **Releases:** every push to `main` publishes zips for macOS, Windows and Linux on the GitHub release for the current version.
 
+### What v1.2 shipped (17 Nov 2026)
+
+- **Live mode:** a Studio / Live switch (parameter `liveMode`) for monitoring and live sound. Live skips the spacing correction FIRs, runs spaced pairs and shotgun on a 256-point STFT instead of 1024 (prepared side by side, so switching does not allocate), and redesigns the binaural filters with a 0.4 ms bulk delay instead of 1 ms (on the message thread, handed over lock-free). Latency at 48 kHz: 0 for coincident, speaker and B-format outputs, 19 samples binaural, 256 samples spaced pairs and shotgun, always reported to the host.
+- **Window redesign:** see "Visual system" below.
+
+### Visual system (v1.2)
+
+- **Palette:** cool graphite shell and panels; amber is the only accent, used for values, selection and the Live state; meter colours (green below -12 dBFS, yellow to -0.1, red above) mean level and nothing else; viridis for the map.
+- **Type:** the system sans in regular and bold; small tracked capitals for section headings; monospaced digits only for measured readouts (values, latency).
+- **Density:** dense, for long sessions, on a 4 px unit (gaps of 8, 12 and 16), corner radius 6 for panels and 4 for controls.
+- **Signature move:** the polar-pattern dial. Its face draws the virtual mic's pickup shape (front lobe filled, inverted rear lobe outlined) as it turns.
+- **Code:** all drawing is in `plugin/Source/Look.*`; `Knob`, `Choice`, `Switch`, `ModeSwitch` and `LevelMeter` in the editor are the only control types.
+
 ### Decisions
 
 Decided on 9 Nov 2026:

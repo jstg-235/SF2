@@ -37,6 +37,7 @@ juce_add_plugin(SF2
     AU_MAIN_TYPE kAudioUnitType_Effect)
 
 target_sources(SF2 PRIVATE
+    Source/Look.cpp
     Source/PluginEditor.cpp
     Source/PluginProcessor.cpp
     Source/Parameters.cpp)

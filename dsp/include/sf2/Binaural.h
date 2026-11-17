@@ -11,7 +11,8 @@
 // interaural time difference, no pinna cues) or from a measured set, for example loaded from a
 // SOFA file. Measured sets are diffuse-field equalised so they sound neutral.
 //
-// Latency is a fixed bulk delay (about 1 ms) whatever the HRTF set. Loading a set is done off the
+// Latency is a fixed bulk delay whatever the HRTF set: about 1 ms, or 0.4 ms in low-latency (Live)
+// mode, which trims more of the filters' pre-ringing. Loading a set is done off the
 // audio thread; the new filters reach the audio thread through a lock-free hand-over.
 
 #include "Fir.h"
@@ -48,7 +49,13 @@ public:
     void prepare (double sampleRate, int maximumBlockSize);
     void reset() noexcept;
 
-    int getLatencySamples() const noexcept { return bulkDelay; }
+    /** The bulk delay of the filters the audio thread is using now. */
+    int getLatencySamples() const noexcept { return activeDelay.load (std::memory_order_relaxed); }
+
+    /** Message thread: low-latency mode uses a shorter bulk delay (0.4 ms instead of 1 ms). The
+        audio thread switches with the next filter hand-over; getLatencySamples() follows it. */
+    void setLowLatency (bool shouldBeLowLatency);
+    bool isLowLatency() const noexcept { return lowLatency; }
     int getFilterLength() const noexcept { return length; }
 
     /** world: 4 world-frame AmbiX channels. Real-time safe. */
@@ -82,7 +89,10 @@ private:
     void applyTaps (const TapSet& taps) noexcept;
 
     double sampleRate = 48000.0;
-    int maxBlock = 0, length = 0, bulkDelay = 0;
+    int maxBlock = 0, length = 0, bulkDelay = 0;   // bulkDelay: of the designed filters
+    bool lowLatency = false;
+    int stagingDelay = 0;
+    std::atomic<int> activeDelay { 0 };
     std::optional<HrirSet> custom;
 
     TapSet designed;                  // message thread

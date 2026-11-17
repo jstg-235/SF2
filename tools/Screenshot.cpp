@@ -1,6 +1,6 @@
 // Developer tool: renders the plugin window to a PNG with test signals running through it, so the
 // layout can be checked without a DAW. Build with -DSF2_BUILD_DEVTOOLS=ON; run as
-//   SF2Screenshot out.png [layout]    layout: stereo (default), binaural, 7.1.4, mono, bformat
+//   SF2Screenshot out.png [layout] [live]    layout: stereo (default), binaural, 7.1.4, mono, bformat
 
 #include "../plugin/Source/PluginProcessor.h"
 #include "../plugin/Source/Parameters.h"
@@ -30,11 +30,14 @@ int main (int argc, char* argv[])
         if (auto* p = proc.apvts.getParameter (sf2::params::stereoType))
             p->setValueNotifyingHost (p->convertTo0to1 (5.0f));
 
+    if (argc > 3 && juce::String (argv[3]) == "live")
+        if (auto* p = proc.apvts.getParameter (sf2::params::liveMode))
+            p->setValueNotifyingHost (1.0f);
+
     const int block = 512;
     proc.prepareToPlay (48000.0, block);
 
     std::unique_ptr<juce::AudioProcessorEditor> editor (proc.createEditor());
-    editor->setSize (1100, 640);
 
     // Noise from front-left and a little above, as an A-format NT-SF1 would capture it.
     std::mt19937 rng (1);

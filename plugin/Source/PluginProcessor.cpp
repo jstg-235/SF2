@@ -74,6 +74,7 @@ SF2AudioProcessor::SF2AudioProcessor()
     windHighPass = apvts.getRawParameterValue (p::windHighPass);
     stereoType   = apvts.getRawParameterValue (p::stereoType);
     abSpacing    = apvts.getRawParameterValue (p::abSpacing);
+    liveMode     = apvts.getRawParameterValue (p::liveMode);
     for (int c = 0; c < 4; ++c)
     {
         capsuleTrim[static_cast<std::size_t> (c)]   = apvts.getRawParameterValue (p::capsuleTrim (c + 1));
@@ -117,6 +118,7 @@ void SF2AudioProcessor::configureEngineForLayout()
 void SF2AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    engine.getBinaural().setLowLatency (liveMode->load() > 0.5f);
     engine.prepare (sampleRate, samplesPerBlock);
     configureEngineForLayout();
     engine.setShotgunEnabled (shotgunOn->load() > 0.5f);
@@ -148,6 +150,7 @@ sf2::EngineParams SF2AudioProcessor::readParams() const noexcept
     p.windHighPassHz = windHighPass->load() < 10.0f ? 0.0 : windHighPass->load();
     p.stereoType     = static_cast<sf2::StereoType> (juce::roundToInt (stereoType->load()));
     p.abSpacingCm    = abSpacing->load();
+    p.liveMode       = liveMode->load() > 0.5f;
     for (std::size_t c = 0; c < 4; ++c)
     {
         p.capsuleTrimDb[c] = capsuleTrim[c]->load();
@@ -168,7 +171,7 @@ void SF2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             engine.setOutputLayout (wanted);
     }
 
-    // Shotgun, spacing correction and the stereo type change the latency; the engine handles the
+    // Shotgun, spacing correction, Live mode and the stereo type change the latency; the engine handles the
     // switch in real time and the timer reports the new latency to the host.
     engine.setShotgunEnabled (shotgunOn->load() > 0.5f);
     const auto params = readParams();
@@ -188,6 +191,10 @@ void SF2AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
 void SF2AudioProcessor::timerCallback()
 {
+    // Binaural filters for Live mode are redesigned here, off the audio thread; the audio thread
+    // picks them up (and their shorter latency) through the usual hand-over.
+    engine.getBinaural().setLowLatency (liveMode->load() > 0.5f);
+
     const int wanted = wantedLatency.load (std::memory_order_relaxed);
     if (wanted != getLatencySamples())
         setLatencySamples (wanted);

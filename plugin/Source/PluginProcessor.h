@@ -88,6 +88,7 @@ private:
     std::atomic<float>* windHighPass = nullptr;
     std::atomic<float>* stereoType = nullptr;
     std::atomic<float>* abSpacing = nullptr;
+    std::atomic<float>* liveMode = nullptr;
     std::array<std::atomic<float>*, 4> capsuleTrim {};
     std::array<std::atomic<float>*, 4> capsuleInvert {};
 

@@ -54,51 +54,6 @@ std::vector<std::complex<double>> spectrum (const std::vector<float>& taps, int 
     return v;
 }
 
-std::vector<float> noise (int n, unsigned seed)
-{
-    std::mt19937 rng (seed);
-    std::normal_distribution<float> g (0.0f, 0.3f);
-    std::vector<float> v (static_cast<std::size_t> (n));
-    for (auto& x : v)
-        x = g (rng);
-    return v;
-}
-
-/** Plane wave of `signal` from direction d, as 4 world-frame AmbiX channels. */
-std::vector<std::vector<float>> encode (const std::vector<float>& signal, const Vec3& d)
-{
-    const auto e = encodeAmbiX (d);
-    std::vector<std::vector<float>> b (4, signal);
-    for (std::size_t c = 0; c < 4; ++c)
-        for (auto& x : b[c])
-            x = static_cast<float> (x * e[c]);
-    return b;
-}
-
-double energy (const std::vector<float>& x, std::size_t from = 0)
-{
-    double s = 0.0;
-    for (std::size_t i = from; i < x.size(); ++i)
-        s += static_cast<double> (x[i]) * x[i];
-    return s;
-}
-
-/** Lag (in samples) at which b best matches a; positive when b arrives later. */
-int bestLag (const std::vector<float>& a, const std::vector<float>& b, int maxLag)
-{
-    int best = 0;
-    double bestValue = -1.0e300;
-    for (int lag = -maxLag; lag <= maxLag; ++lag)
-    {
-        double s = 0.0;
-        for (int i = maxLag; i + maxLag < static_cast<int> (a.size()); ++i)
-            s += static_cast<double> (a[static_cast<std::size_t> (i)]) * b[static_cast<std::size_t> (i + lag)];
-        if (s > bestValue)
-            bestValue = s, best = lag;
-    }
-    return best;
-}
-
 /** Sine of frequency f, `n` samples. */
 std::vector<float> sine (double f, double sr, int n)
 {
