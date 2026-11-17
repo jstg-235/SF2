@@ -27,6 +27,9 @@ inline constexpr const char* windHighPass      = "windHighPass";
 inline constexpr const char* stereoType        = "stereoType";
 inline constexpr const char* abSpacing         = "abSpacing";
 
+// Added in v1.2 (version hint 3).
+inline constexpr const char* liveMode          = "liveMode";
+
 /** Per-capsule trim and polarity, capsules 1 to 4: "capsuleTrim1", "capsuleInvert1", ... */
 juce::String capsuleTrim (int capsule);
 juce::String capsuleInvert (int capsule);

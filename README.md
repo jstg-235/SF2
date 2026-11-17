@@ -12,7 +12,7 @@ Ready-to-use macOS builds (VST3, AU, standalone app; Windows and Linux are pause
 
 ## Status
 
-v1.1, the "quality" release.
+v1.2: a redesigned window and a Live (low-latency) mode, on top of the v1.1 "quality" release.
 
 Input
 - A-format input for RØDE NT-SF1, SoundField SPS200, Sennheiser AMBEO VR, Core Sound TetraMic and Zoom H3-VR, or B-format in FuMa or AmbiX
@@ -27,10 +27,13 @@ Output
 - Shotgun mode on mono output (on/off, with a focus control). Adds 1024 samples at 48 kHz when on
 - First-order B-format output in AmbiX or FuMa
 - Latency is always reported to the host, which compensates it
+- **Live mode** (the Studio / Live switch in the header) for monitoring and live sound: skips spacing correction, and uses a 256-point STFT for spaced pairs and shotgun and a 0.4 ms bulk delay for binaural. At 48 kHz that is 0 samples for coincident, surround and B-format, 19 samples (0.4 ms) for binaural, and 256 samples (5.3 ms) for spaced pairs and shotgun. Spaced pairs and shotgun have coarser frequency resolution in Live mode
 
 Window
+- Input, sound field and output panels in signal-flow order, with one look throughout (see "Visual system" in docs/DESIGN.md)
 - Live sound-field heat map (colour-blind-safe palette) with markers where the outputs point. Drag the map to rotate the scene; double-click a spot to bring it to the front
-- Capsule and output level meters, latency readout
+- Rotary controls with typed entry, double-click to reset, Shift-drag for fine control and mouse wheel. The polar-pattern dial draws the virtual mic's pickup shape as you turn it
+- Capsule and output level meters with a dB scale, peak hold and channel names; latency readout in the header
 
 Formats: VST3 and Standalone on all platforms, AU on macOS. AAX later.
 

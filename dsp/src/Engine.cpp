@@ -74,8 +74,10 @@ void Engine::prepare (double newSampleRate, int maximumBlockSize)
     scratch.assign (static_cast<std::size_t> (numInputs * maxBlock), 0.0f);
     worldScratch.assign (static_cast<std::size_t> ((numInputs + 2) * maxBlock), 0.0f);   // + 2 spare output channels
 
-    shotgun.prepare (sampleRate);
-    spaced.prepare (sampleRate, maxBlock);
+    shotgun.prepare (sampleRate, stftSize);
+    shotgunLive.prepare (sampleRate, liveStftSize);
+    spaced.prepare (sampleRate, maxBlock, stftSize);
+    spacedLive.prepare (sampleRate, maxBlock, liveStftSize);
     binaural.prepare (sampleRate, maxBlock);
 
     for (std::size_t m = 0; m < numMicModels; ++m)
@@ -118,7 +120,9 @@ void Engine::reset() noexcept
     for (auto& f : correctionFirs)
         f.reset();
     shotgun.reset();
+    shotgunLive.reset();
     spaced.reset();
+    spacedLive.reset();
     binaural.reset();
     snapToTarget = true;
 }
@@ -227,6 +231,7 @@ void Engine::setShotgunEnabled (bool shouldBeEnabled) noexcept
         return;
     shotgunEnabled = shouldBeEnabled;
     shotgun.reset();
+    shotgunLive.reset();
     snapToTarget = true;
 }
 
@@ -235,18 +240,19 @@ bool Engine::usesWorldPath (const EngineParams& params) const noexcept
     return usesShotgun() || (mode == OutputMode::Stereo && params.stereoType != StereoType::Coincident);
 }
 
-int Engine::getLatencySamples (const EngineParams& params) const noexcept
+int Engine::getLatencySamples (const EngineParams& rawParams) const noexcept
 {
+    const auto params = effective (rawParams);
     int latency = 0;
     if (params.inputFormat == InputFormat::AFormat && params.spacingCorrection)
         latency += correctionDelay;
 
     if (usesShotgun())
-        latency += shotgun.getLatencySamples();
+        latency += (params.liveMode ? shotgunLive : shotgun).getLatencySamples();
     else if (mode == OutputMode::Stereo && params.stereoType == StereoType::Binaural)
         latency += binaural.getLatencySamples();
     else if (mode == OutputMode::Stereo && params.stereoType != StereoType::Coincident)
-        latency += spaced.getLatencySamples();
+        latency += (params.liveMode ? spacedLive : spaced).getLatencySamples();
 
     return latency;
 }
@@ -404,7 +410,7 @@ void Engine::runWorldStage (float* const* outputs, int numOutputChannels, int le
     if (usesShotgun())
     {
         const Vec3 look = directionFromAzEl (speakers[0].azimuthDeg, speakers[0].elevationDeg);
-        shotgun.process (world, len, virtualMicRow (look, params.pattern), look, params.shotgunFocus, out0);
+        (params.liveMode ? shotgunLive : shotgun).process (world, len, virtualMicRow (look, params.pattern), look, params.shotgunFocus, out0);
     }
     else if (params.stereoType == StereoType::Binaural)
     {
@@ -412,7 +418,7 @@ void Engine::runWorldStage (float* const* outputs, int numOutputChannels, int le
     }
     else
     {
-        spaced.process (world, len, pairConfigFor (params.stereoType, params.abSpacingCm, params.pattern, params.stereoAngleDeg),
+        (params.liveMode ? spacedLive : spaced).process (world, len, pairConfigFor (params.stereoType, params.abSpacingCm, params.pattern, params.stereoAngleDeg),
                         out0, out1);
     }
 }
@@ -437,10 +443,19 @@ void Engine::publishMeters (float* const* outputs, int numOutputChannels, int nu
 
 void Engine::process (const float* const* inputs, int numInputChannels,
                       float* const* outputs, int numOutputChannels,
-                      int numSamples, const EngineParams& params) noexcept
+                      int numSamples, const EngineParams& rawParams) noexcept
 {
     if (numSamples <= 0 || maxBlock == 0)
         return;
+
+    const auto params = effective (rawParams);
+    if (params.liveMode != lastLive)
+    {
+        // The other STFT objects hold stale audio from before the last switch.
+        lastLive = params.liveMode;
+        (lastLive ? shotgunLive : shotgun).reset();
+        (lastLive ? spacedLive : spaced).reset();
+    }
 
     updateLfeFilters (params.lfeCutoffHz);
     updateWindFilters (params.inputFormat == InputFormat::AFormat ? params.windHighPassHz : 0.0);

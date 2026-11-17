@@ -33,6 +33,13 @@ namespace
         return shadow * std::polar (1.0, -w * (t + a));   // + a keeps the earliest arrival at 0
     }
 
+    /** Room left before the earliest arrival for the pre-ringing of the dual-band decode and the
+        diffuse-field EQ: 1 ms normally, 0.4 ms in low-latency mode. */
+    int bulkDelayFor (double sampleRate, bool lowLatency) noexcept
+    {
+        return static_cast<int> (std::lround ((lowLatency ? 0.0004 : 0.001) * sampleRate));
+    }
+
     int filterLength (double sampleRate) noexcept
     {
         int len = 64;
@@ -115,7 +122,7 @@ void Binaural::prepare (double newSampleRate, int maximumBlockSize)
     sampleRate = newSampleRate > 0.0 ? newSampleRate : 48000.0;
     maxBlock = std::max (1, maximumBlockSize);
     length = filterLength (sampleRate);
-    bulkDelay = static_cast<int> (std::lround (0.001 * sampleRate));
+    bulkDelay = bulkDelayFor (sampleRate, lowLatency);
 
     for (auto& ear : firs)
         for (auto& f : ear)
@@ -129,8 +136,23 @@ void Binaural::prepare (double newSampleRate, int maximumBlockSize)
     ready.store (false);
     design();
     applyTaps (designed);   // audio is stopped during prepare, so apply directly
+    activeDelay.store (bulkDelay);
     designPending = false;
     reset();
+}
+
+void Binaural::setLowLatency (bool shouldBeLowLatency)
+{
+    if (shouldBeLowLatency == lowLatency)
+        return;
+    lowLatency = shouldBeLowLatency;
+    if (length > 0)
+    {
+        bulkDelay = bulkDelayFor (sampleRate, lowLatency);
+        design();
+        designPending = true;
+        pumpPendingFilters();
+    }
 }
 
 void Binaural::reset() noexcept
@@ -182,6 +204,7 @@ bool Binaural::pumpPendingFilters() noexcept
     for (std::size_t e = 0; e < 2; ++e)
         for (std::size_t c = 0; c < 4; ++c)
             std::copy (designed[e][c].begin(), designed[e][c].end(), staging[e][c].begin());
+    stagingDelay = bulkDelay;
     ready.store (true, std::memory_order_release);
     designPending = false;
     return false;
@@ -322,6 +345,7 @@ void Binaural::process (const float* const* world, int numSamples, float* left, 
     if (ready.load (std::memory_order_acquire))
     {
         applyTaps (staging);
+        activeDelay.store (stagingDelay, std::memory_order_relaxed);
         ready.store (false, std::memory_order_release);
     }
 

@@ -1,12 +1,16 @@
 #pragma once
 
-// SF2's window (docs/DESIGN.md, "Interface design"): inputs on the left, a live sound-field map
-// in the centre, outputs on the right.
+// SF2's window (docs/DESIGN.md, "Interface design"): input on the left, the live sound-field map
+// in the centre with the scene rotation under it, output on the right, all in signal-flow order.
+// The header holds the Studio / Live switch and the latency the host compensates.
 //
 // The map shows the scene as the virtual mics hear it, after orientation and rotation: front in
 // the middle, left to the left, up at the top. Drag it to rotate the scene (yaw and pitch), or
 // double-click a hot spot to bring it to the front. Markers show where the outputs point.
+//
+// All drawing lives in Look (Look.h); the components here only lay out and connect parameters.
 
+#include "Look.h"
 #include "PluginProcessor.h"
 
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -15,15 +19,99 @@
 #include <memory>
 #include <vector>
 
+/** A slider that drags four times finer with Shift held. */
+class Dial final : public juce::Slider
+{
+public:
+    void mouseDown (const juce::MouseEvent&) override;
+};
+
+/** Rotary or linear control bound to one parameter, with its caption and value readout. */
+class Knob final : public juce::Component
+{
+public:
+    enum class Kind { Large, Small, Linear };
+
+    Knob (juce::AudioProcessorValueTreeState&, const juce::String& paramId, const juce::String& caption,
+          Kind, bool bipolar = false, bool showsPattern = false);
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void enablementChanged() override { repaint(); }
+
+    Dial dial;
+
+private:
+    juce::String caption;
+    Kind kind;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
+};
+
+/** Choice parameter as a captioned drop-down. */
+class Choice final : public juce::Component
+{
+public:
+    Choice (juce::AudioProcessorValueTreeState&, const juce::String& paramId, const juce::String& caption);
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void enablementChanged() override { repaint(); }
+
+private:
+    juce::String caption;
+    juce::ComboBox box;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> attachment;
+};
+
+/** On/off parameter as a pill switch with its name. */
+class Switch final : public juce::Component
+{
+public:
+    Switch (juce::AudioProcessorValueTreeState&, const juce::String& paramId, const juce::String& text);
+    void resized() override { button.setBounds (getLocalBounds()); }
+
+    juce::ToggleButton button;
+
+private:
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> attachment;
+};
+
+/** The Studio / Live segmented switch in the header. */
+class ModeSwitch final : public juce::Component,
+                         public juce::SettableTooltipClient
+{
+public:
+    explicit ModeSwitch (juce::RangedAudioParameter& liveParam);
+
+    void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    bool keyPressed (const juce::KeyPress&) override;
+    void focusGained (FocusChangeType) override { repaint(); }
+    void focusLost (FocusChangeType) override { repaint(); }
+
+    std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override;
+
+    bool isLive() const noexcept { return live; }
+    void setLive (bool shouldBeLive);
+
+private:
+    juce::ParameterAttachment attachment;
+    bool live = false;
+};
+
 class LevelMeter final : public juce::Component
 {
 public:
-    /** Takes a linear peak; shows it on a -60 to 0 dBFS scale with a slow fall. */
+    /** Takes a linear peak; shows it on a -60 to 0 dBFS scale with a slow fall and a peak hold. */
     void setPeak (float linear);
     void paint (juce::Graphics&) override;
 
+    /** Height fraction (0 bottom ... 1 top) of a level on the meter scale. */
+    static float fractionFor (float db) noexcept { return juce::jlimit (0.0f, 1.0f, (db + 60.0f) / 60.0f); }
+
 private:
-    float shownDb = -100.0f;
+    float shownDb = -100.0f, holdDb = -100.0f;
+    int holdFrames = 0;
 };
 
 class SoundFieldView final : public juce::Component
@@ -63,36 +151,50 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    static constexpr int baseWidth = 1120, baseHeight = 700;
+
 private:
-    struct Row
+    struct Capsule
     {
-        juce::String paramId;
-        std::unique_ptr<juce::Label> label;
-        std::unique_ptr<juce::Component> control;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> slider;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> combo;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> button;
+        LevelMeter meter;
+        std::unique_ptr<Knob> trim;
+        juce::TextButton invert;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> invertAttachment;
     };
 
-    Row& addRow (std::vector<Row>& column, const juce::String& paramId, const juce::String& labelText = {});
-    void layoutColumn (std::vector<Row>& column, juce::Rectangle<int>& area);
-    Row* find (const juce::String& paramId);
+    struct Panels { juce::Rectangle<int> header, input, centre, output; };
+    Panels panelsFor (juce::Rectangle<int> bounds) const;
+
     void timerCallback() override;
     void updateEnablement();
     void chooseSofa();
 
     SF2AudioProcessor& processor;
     juce::AudioProcessorValueTreeState& apvts;
+    sf2ui::Look look;
+    juce::TooltipWindow tooltips { this, 600 };
 
-    std::vector<Row> inputRows, outputRows, rotationRows;
-    std::array<Row, 4> capsuleTrims, capsuleInverts;
-    std::array<LevelMeter, 4> inputMeters;
-    std::array<LevelMeter, sf2::Engine::maxOutputs> outputMeters;
+    ModeSwitch mode;
+
+    Choice inputFormat, micModel, orientation;
+    Switch spacingCorrection;
+    Knob windHighPass;
+    std::array<Capsule, 4> capsules;
 
     SoundFieldView field;
-    juce::Label title, latency, outputLayout, hrtfLabel, capsulesHeading, outputsHeading;
+    Knob yaw, pitch, roll;
+
+    Choice stereoType;
+    Knob pattern, stereoAngle, abSpacing, gain, lfeCutoff, shotgunFocus;
+    Switch shotgun;
+    Choice bFormatOut;
     juce::TextButton loadSofa { "Load SOFA..." }, headModel { "Head model" };
     std::unique_ptr<juce::FileChooser> chooser;
+    std::array<LevelMeter, sf2::Engine::maxOutputs> outputMeters;
+
+    juce::Rectangle<int> hrtfArea, capsulesArea, metersArea;   // set by resized(), drawn by paint()
+    juce::String latencyText, latencySamplesText, outputText, hrtfText;
+    std::vector<juce::String> meterNames;
 
     sf2::Covariance smoothed {};
     std::vector<float> map;

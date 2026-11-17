@@ -28,8 +28,9 @@ namespace sf2
 class Shotgun
 {
 public:
-    /** Allocates. FFT size scales with sample rate (1024 at 48 kHz). */
-    void prepare (double sampleRate);
+    /** Allocates. FFT size scales with sample rate (baseFftSize at 48 kHz). The latency is the
+        FFT size; Live mode uses a smaller FFT for less latency and coarser frequency resolution. */
+    void prepare (double sampleRate, int baseFftSize = 1024);
     void reset() noexcept;
 
     int getLatencySamples() const noexcept { return fftSize; }

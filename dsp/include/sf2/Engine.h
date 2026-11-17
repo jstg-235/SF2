@@ -84,6 +84,13 @@ struct EngineParams
 
     /** Shotgun focus for mono output when shotgun mode is on: 0 = plain virtual mic, 1 = narrowest beam. */
     double shotgunFocus   = 0.0;
+
+    /** Live (low-latency) mode, for monitoring and live sound. Spacing correction is skipped
+        (0 instead of 32 samples at 48 kHz), spaced pairs and shotgun use a 256-point STFT instead
+        of 1024 (5.3 ms instead of 21.3 ms) and binaural uses a 0.4 ms bulk delay instead of 1 ms
+        (set on the Binaural object from the message thread). Coincident, speaker and B-format
+        outputs have no latency either way. */
+    bool liveMode = false;
 };
 
 /** The microphone pair a spaced stereo type uses. */
@@ -131,7 +138,10 @@ public:
     int getLatencySamples() const noexcept { return getLatencySamples (lastParams); }
 
     /** Latency shotgun mode adds when it is on, for the current sample rate. */
-    int getShotgunLatencySamples() const noexcept { return shotgun.getLatencySamples(); }
+    int getShotgunLatencySamples (bool live = false) const noexcept { return (live ? shotgunLive : shotgun).getLatencySamples(); }
+
+    /** STFT size at 48 kHz for spaced pairs and shotgun, normally and in Live mode. */
+    static constexpr int stftSize = 1024, liveStftSize = 256;
 
     bool isMonoOutput() const noexcept { return mode == OutputMode::Speakers && numOutputs == 1 && ! speakers[0].isLfe; }
     OutputMode getOutputMode() const noexcept { return mode; }
@@ -184,6 +194,15 @@ private:
     /** Mic-frame AmbiX to outputs, for the matrix-only output modes. */
     GainMatrix computeOutputMatrix (const EngineParams& params) const noexcept;
 
+    /** The parameters as the signal path applies them: Live mode turns spacing correction off. */
+    static EngineParams effective (const EngineParams& params) noexcept
+    {
+        auto p = params;
+        if (p.liveMode)
+            p.spacingCorrection = false;
+        return p;
+    }
+
     void updateLfeFilters (double cutoffHz) noexcept;
     void updateWindFilters (double cutoffHz) noexcept;
     void updateCorrectionTaps (const EngineParams& params) noexcept;
@@ -221,9 +240,10 @@ private:
     int correctionModel = -1;              // model whose taps are loaded
     int correctionDelay = 0;
 
-    Shotgun shotgun;
+    Shotgun shotgun, shotgunLive;          // both prepared, so Live mode switches without allocating
     bool shotgunEnabled = false;
-    SpacedPair spaced;
+    SpacedPair spaced, spacedLive;
+    bool lastLive = false;
     Binaural binaural;
 
     EngineParams lastParams;

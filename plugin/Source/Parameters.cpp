@@ -80,6 +80,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { abSpacing, 2 }, "AB spacing",
                     NormalisableRange<float> (5.0f, 100.0f, 0.5f), 40.0f, AudioParameterFloatAttributes().withLabel ("cm")));
 
+
+    // v1.2
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { liveMode, 3 }, "Live mode (low latency)", false));
+
     return layout;
 }
 
